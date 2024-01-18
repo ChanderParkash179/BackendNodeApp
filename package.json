@@ -1,0 +1,23 @@
+{
+  "name": "backend-node-app",
+  "version": "1.0.0",
+  "description": "A Complete Production Ready Node.js & Express.js Backend App",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChanderParkash179/BackendNodeApp.git"
+  },
+  "author": "Chander Parkash chanderparkash179@gmail.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ChanderParkash179/BackendNodeApp/issues"
+  },
+  "homepage": "https://github.com/ChanderParkash179/BackendNodeApp#readme",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
