@@ -120,3 +120,4 @@ dist
 .node_modules
 .vscode
 .idea
+apis.http

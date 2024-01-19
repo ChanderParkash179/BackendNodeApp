@@ -50,7 +50,7 @@ const userSchema = new Schema(
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
 
-  const rounds = process.env.HASH_ROUNDS || 10;
+  const rounds = 10;
   this.password = await bcrypt.hash(this.password, rounds);
   next();
 });
