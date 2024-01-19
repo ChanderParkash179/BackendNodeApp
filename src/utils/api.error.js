@@ -5,13 +5,13 @@ class APIError extends Error {
     errors = [],
     statck = ""
   ) {
-    super(code, message),
+    super(message),
       this.code = code,
       this.data = null,
       this.message = message,
       this.errors = errors
 
-    if (statck)
+    if (stack)
       this.stack = statck
     else
       Error.captureStackTrace(
