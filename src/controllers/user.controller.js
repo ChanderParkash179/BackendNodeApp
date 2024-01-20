@@ -4,7 +4,7 @@ import { APIError } from '../utils/api.error.js';
 import { APIResponse } from '../utils/api.response.js';
 import { User } from '../models/user.model.js';
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
-import { OPTIONS } from '../constants.js';
+import { OPTIONS, STATUS_CODE } from '../constants.js';
 
 
 // * CREATING REFRESH AND ACCESS TOKENS
@@ -21,7 +21,7 @@ const createAccessAndRefreshToken = async (userId) => {
 
     return { refreshToken, accessToken };
   } catch (error) {
-    throw new APIError(500, `something went wrong in while generating access or refresh token! error: [${error}]`);
+    throw new APIError(STATUS_CODE.INTERNAL_SERVER_ERROR, `something went wrong in while generating access or refresh token! error: [${error}]`);
   }
 }
 
@@ -34,7 +34,7 @@ const register = async_handler(async (req, res) => {
   if (
     [fullname, username, email, password].some((field) => field?.trim() === "")
   ) {
-    throw new APIError(400, "some fields are missing in request!");
+    throw new APIError(STATUS_CODE.BAD_REQUEST, "some fields are missing in request!");
   }
 
   // check if user already exists
@@ -45,13 +45,13 @@ const register = async_handler(async (req, res) => {
   const avatar_local_path = req.files?.avatar[0]?.path;
   const coverImage_local_path = req.files?.coverImage[0]?.path;
 
-  if (!avatar_local_path) throw new APIError(400, "avatar file is required!");
+  if (!avatar_local_path) throw new APIError(STATUS_CODE.BAD_REQUEST, "avatar file is required!");
 
   // upload them to cloudinary, avatar
   const avatar = await uploadOnCloudinary(avatar_local_path);
   const coverImage = await uploadOnCloudinary(coverImage_local_path);
 
-  if (!avatar) throw new APIError(400, "avatar file is required!");
+  if (!avatar) throw new APIError(STATUS_CODE.BAD_REQUEST, "avatar file is required!");
 
   // create user object - create entry in db
   const user = await User.create({
@@ -67,10 +67,10 @@ const register = async_handler(async (req, res) => {
   const created = await User.findById(user._id).select("-password -refreshToken");
 
   // check for user creation
-  if (!created) throw new APIError(500, "something went wrong, during user registration!");
+  if (!created) throw new APIError(STATUS_CODE.INTERNAL_SERVER_ERROR, "something went wrong, during user registration!");
 
   // return response
-  return res.status(201).json(new APIResponse(201, created, "user registered successfully!"));
+  return res.status(STATUS_CODE.CREATED).json(new APIResponse(STATUS_CODE.CREATED, created, "user registered successfully!"));
 });
 
 // * LOGIN USER API
@@ -81,7 +81,7 @@ const login = async_handler(async (req, res) => {
 
   // username or email validation
   if (!(username || email))
-    throw new APIError(400, "username or email is required!");
+    throw new APIError(STATUS_CODE.BAD_REQUEST, "username or email is required!");
 
   // find the user
   const user = await User.findOne(
@@ -91,11 +91,11 @@ const login = async_handler(async (req, res) => {
   );
 
   // validate user
-  if (!user) throw new APIError(404, "no user found against the provided request");
+  if (!user) throw new APIError(STATUS_CODE.NOT_FOUND, "no user found against the provided request!");
 
   // validate password
   const passwordValidation = await user.isPasswordCorrect(password);
-  if (!passwordValidation) throw new APIError(401, "unauthorized request");
+  if (!passwordValidation) throw new APIError(STATUS_CODE.BAD_REQUEST, "password is not matched!");
 
   // creating access and refresh token
   const { refreshToken, accessToken } = await createAccessAndRefreshToken(user._id);
@@ -108,12 +108,12 @@ const login = async_handler(async (req, res) => {
 
   // return response
   return res
-    .status(200)
+    .status(STATUS_CODE.OK)
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
     .json(
       new APIResponse(
-        200,
+        STATUS_CODE.OK,
         {
           accessToken,
           refreshToken,
@@ -144,12 +144,12 @@ const logout = async_handler(async (req, res) => {
 
   // return response
   return res
-    .status(200)
+    .status(STATUS_CODE.OK)
     .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
     .json(
       new APIResponse(
-        200,
+        STATUS_CODE.OK,
         {},
         "user logged out successfully!"
       )
@@ -163,7 +163,7 @@ const refreshAccessToken = async_handler(async (req, res) => {
     const inRefreshToken = req.cookie.refreshToken || req.body.refreshToken
 
     // check availability of token
-    if (!inRefreshToken) throw new APIError(401, "unauthorized request");
+    if (!inRefreshToken) throw new APIError(STATUS_CODE.UNAUTHORIZED, "unauthorized request");
 
     // decode token
     const decoded = jwt.verify(inRefreshToken, process.env.REFRESH_TOKEN_SECRET);
@@ -172,10 +172,10 @@ const refreshAccessToken = async_handler(async (req, res) => {
     const user = await User.findById(decoded?._id);
 
     // validating fetched user
-    if (!user) throw new APIError(404, "no user available!");
+    if (!user) throw new APIError(STATUS_CODE.NOT_FOUND, "no user available!");
 
     // comparing & validating user refreshToken with requested token
-    if (inRefreshToken !== user?.refreshToken) throw new APIError(401, "refresh token is expired or used!");
+    if (inRefreshToken !== user?.refreshToken) throw new APIError(STATUS_CODE.UNAUTHORIZED, "refresh token is expired or used!");
 
     // extracting options for security of headers & cookies
     const options = OPTIONS;
@@ -185,12 +185,12 @@ const refreshAccessToken = async_handler(async (req, res) => {
 
     // returning response
     return res
-      .status(200)
+      .status(STATUS_CODE.OK)
       .cookie("accessToken", accessToken, options)
       .cookie("refreshToken", newRefreshToken, options)
       .json(
         new APIResponse(
-          200,
+          STATUS_CODE.OK,
           {
             accessToken,
             refreshToken: newRefreshToken,
@@ -200,11 +200,36 @@ const refreshAccessToken = async_handler(async (req, res) => {
       )
   } catch (error) {
     throw new APIError(
-      401,
+      STATUS_CODE.UNAUTHORIZED,
       error?.message || "invalid refresh token!"
     )
   }
 
 });
 
-export { register, login, logout, refreshAccessToken }
+// * CHANGE PASSWORD
+const changePassword = async_handler(async (req, res) => {
+  const { oldpassword, newpassword } = req.body;
+
+  const user = await User.findById(req.user?._id);
+  console.log(user);
+  const isPasswordCorrect = await user.isPasswordCorrect(oldpassword);
+
+  if (!isPasswordCorrect) throw new APIError(STATUS_CODE.BAD_REQUEST, "old password is not matched!");
+
+  user.password = newpassword;
+
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(STATUS_CODE.OK)
+    .json(
+      new APIResponse(
+        STATUS_CODE.OK,
+        {},
+        "password changed successfully!"
+      )
+    );
+});
+
+export { register, login, logout, refreshAccessToken, changePassword }
