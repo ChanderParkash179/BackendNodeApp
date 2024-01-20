@@ -3,7 +3,7 @@ class APIError extends Error {
     code,
     message = process.env.ERROR_MSG,
     errors = [],
-    statck = ""
+    stack = ""
   ) {
     super(message),
       this.code = code,
@@ -12,7 +12,7 @@ class APIError extends Error {
       this.errors = errors
 
     if (stack)
-      this.stack = statck
+      this.stack = stack
     else
       Error.captureStackTrace(
         this,
