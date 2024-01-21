@@ -212,7 +212,6 @@ const changePassword = async_handler(async (req, res) => {
   const { oldpassword, newpassword } = req.body;
 
   const user = await User.findById(req.user?._id);
-  console.log(user);
   const isPasswordCorrect = await user.isPasswordCorrect(oldpassword);
 
   if (!isPasswordCorrect) throw new APIError(STATUS_CODE.BAD_REQUEST, "old password is not matched!");
@@ -232,4 +231,132 @@ const changePassword = async_handler(async (req, res) => {
     );
 });
 
-export { register, login, logout, refreshAccessToken, changePassword }
+// * GETTING CURRENT USER
+const currentUser = async_handler(async (req, res) => {
+  return res
+    .status(200)
+    .json(
+      new APIResponse(
+        STATUS_CODE.OK,
+        req.user,
+        "requested user fetched successfully!"
+      )
+    );
+});
+
+// * UPDATE ACCOUNT FIELDS
+const edit = async_handler(async (req, res) => {
+  const { fullname, email } = req.body;
+
+  if (!(fullname && email)) throw new APIError(STATUS_CODE.NOT_FOUND, "please provided all requested data!");
+
+  const user = await User.findByIdAndUpdate(
+    req.user?.id,
+    {
+      $set:
+      {
+        fullname,
+        email
+      }
+    },
+    {
+      new: true
+    }
+  ).select(
+    "-password -refreshToken"
+  );
+
+  return res
+    .status(201)
+    .json(
+      new APIResponse(
+        STATUS_CODE.CREATED,
+        user,
+        "data updated successfully!"
+      )
+    );
+});
+
+// * UPDATE AVATAR
+const avatarUpdate = async_handler(async (req, res) => {
+
+  const avatarPath = req.file?.path;
+
+  if (!avatarPath) throw new APIError(STATUS_CODE.NOT_FOUND, "path is invalid or not provided correctly!");
+
+  // TODO: delete avatar
+
+  const avatar = await uploadOnCloudinary(avatarPath);
+
+  if (!avatar) throw new APIError(STATUS_CODE.BAD_REQUEST, "something went wrong during upload of avatar!");
+
+  const updated = await User.findByIdAndUpdate(
+    req.user?.id,
+    {
+      $set: {
+        avatar: avatar?.url
+      }
+    }
+  ).select(
+    "-password -refreshToken"
+  );
+
+  return res
+    .status(201)
+    .json(
+      new APIResponse
+        (
+          STATUS_CODE.CREATED,
+          updated,
+          "avatar updated successfully!"
+        )
+    )
+});
+
+// * UPDATE COVER IMAGE
+const coverImageUpdate = async_handler(async (req, res) => {
+
+  const coverImagePath = req.file?.path;
+
+  if (!coverImagePath) throw new APIError(STATUS_CODE.NOT_FOUND, "path is invalid or not provided correctly!");
+
+  // TODO: delete cover image
+
+  const coverImage = await uploadOnCloudinary(coverImagePath);
+
+  if (!coverImage) throw new APIError(STATUS_CODE.BAD_REQUEST, "something went wrong during upload of coverImage!");
+
+  const user = await User.findByIdAndUpdate(
+    req.user?.id,
+    {
+      $set: {
+        coverImage: coverImage?.url
+      }
+    }
+  ).select(
+    "-password -refreshToken"
+  );
+
+  return res
+    .status(201)
+    .json(
+      new APIResponse
+        (
+          STATUS_CODE.CREATED,
+          user,
+          "coverImage updated successfully!"
+        )
+    )
+});
+
+export {
+  register,
+  login,
+  logout,
+  refreshAccessToken,
+  changePassword,
+  currentUser,
+  edit,
+  avatarUpdate,
+  coverImageUpdate
+}
