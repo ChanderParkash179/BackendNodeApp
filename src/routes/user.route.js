@@ -10,7 +10,9 @@ import {
   currentUser,
   edit,
   avatarUpdate,
-  coverImageUpdate
+  coverImageUpdate,
+  userChannelProfile,
+  watchHistory
 } from '../controllers/user.controller.js';
 
 const router = Router();
@@ -31,15 +33,18 @@ router.route("/register").post(
   register
 );
 
-router.route("/avatar").post([verifyJWT, upload.single("avatar")], avatarUpdate);
-router.route("/cover-image").post([verifyJWT, upload.single("coverImage")], coverImageUpdate);
-
 router.route("/login").post(login);
 router.route("/logout").post(verifyJWT, logout);
 router.route("/refresh-access-token").post(refreshAccessToken);
-router.route("/edit").post(verifyJWT, edit);
 router.route("/change-password").post(verifyJWT, changePassword);
-router.route("/current-user").post(verifyJWT, currentUser);
+router.route("/update-user").post(verifyJWT, currentUser);
 
+router.route("/current-user").get(verifyJWT, currentUser);
+router.route("/channel/:username").get(verifyJWT, userChannelProfile);
+router.route("/history").get(verifyJWT, watchHistory);
+
+router.route("/edit").patch(verifyJWT, edit);
+router.route("/avatar").patch([verifyJWT, upload.single("avatar")], avatarUpdate);
+router.route("/cover-image").patch([verifyJWT, upload.single("coverImage")], coverImageUpdate);
 
 export default router;

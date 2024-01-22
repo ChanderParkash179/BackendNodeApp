@@ -349,6 +349,134 @@ const coverImageUpdate = async_handler(async (req, res) => {
     )
 });
 
+// * GET USER CHANNEL PROFILE DETALS
+const userChannelProfile = async_handler(async (req, res) => {
+  const { username } = req.params
+
+  if (!username?.trim()) {
+    throw new APIError(STATUS_CODE.BAD_REQUEST, "username is missing")
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase()
+      }
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers"
+      }
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo"
+      }
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers"
+        },
+        channelsSubscribedToCount: {
+          $size: "$subscribedTo"
+        },
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false
+          }
+        }
+      }
+    },
+    {
+      $project: {
+        fullName: 1,
+        username: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+        isSubscribed: 1,
+        avatar: 1,
+        coverImage: 1,
+        email: 1
+
+      }
+    }
+  ])
+
+  if (!channel?.length) {
+    throw new APIError(STATUS_CODE.NOT_FOUND, "channel does not exists")
+  }
+
+  return res
+    .status(200)
+    .json(
+      new APIResponse(STATUS_CODE.OK, channel[0], "user channel fetched successfully")
+    )
+});
+
+// * USER'S WATCH HISTORY
+const watchHistory = async_handler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id)
+      }
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1
+                  }
+                }
+              ]
+            }
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]);
+
+  return res
+    .status(200)
+    .json(
+      new APIResponse(
+        STATUS_CODE.OK,
+        user[0].watchHistory,
+        "watch history fetched successfully"
+      )
+    )
+});
+
 export {
   register,
   login,
@@ -358,5 +486,7 @@ export {
   currentUser,
   edit,
   avatarUpdate,
-  coverImageUpdate
+  coverImageUpdate,
+  userChannelProfile,
+  watchHistory
 }
