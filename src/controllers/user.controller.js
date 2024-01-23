@@ -3,7 +3,7 @@ import { async_handler } from '../utils/async.handler.js';
 import { APIError } from '../utils/api.error.js';
 import { APIResponse } from '../utils/api.response.js';
 import { User } from '../models/user.model.js';
-import { uploadOnCloudinary } from '../utils/cloudinary.js';
+import { removeFromCloudinary, searchOnCloudinary, uploadOnCloudinary } from '../utils/cloudinary.js';
 import { OPTIONS, STATUS_CODE } from '../constants.js';
 
 
@@ -285,21 +285,25 @@ const avatarUpdate = async_handler(async (req, res) => {
   if (!avatarPath) throw new APIError(STATUS_CODE.NOT_FOUND, "path is invalid or not provided correctly!");
 
   // TODO: delete avatar
+  const user = await User.findById(req.user?._id);
+  await removeFromCloudinary(user.avatar, avatarPath);
 
   const avatar = await uploadOnCloudinary(avatarPath);
 
   if (!avatar) throw new APIError(STATUS_CODE.BAD_REQUEST, "something went wrong during upload of avatar!");
 
-  const updated = await User.findByIdAndUpdate(
-    req.user?.id,
-    {
-      $set: {
-        avatar: avatar?.url
-      }
-    }
-  ).select(
-    "-password -refreshToken"
-  );
+  user.avatar = avatar.url;
+
+  await user.save({ validateBeforeSave: false });
+
+  const responseUser = {
+    id: user._id,
+    username: user.username,
+    fullname: user.fullname,
+    email: user.email,
+    avatar: user.avatar,
+    coverImage: user.coverImage
+  }
 
   return res
     .status(201)
@@ -307,7 +311,7 @@ const avatarUpdate = async_handler(async (req, res) => {
       new APIResponse
         (
           STATUS_CODE.CREATED,
-          updated,
+          responseUser,
           "avatar updated successfully!"
         )
     )
@@ -321,21 +325,25 @@ const coverImageUpdate = async_handler(async (req, res) => {
   if (!coverImagePath) throw new APIError(STATUS_CODE.NOT_FOUND, "path is invalid or not provided correctly!");
 
   // TODO: delete cover image
+  const user = await User.findById(req.user?._id);
+  await removeFromCloudinary(user.coverImage, coverImagePath);
 
   const coverImage = await uploadOnCloudinary(coverImagePath);
 
   if (!coverImage) throw new APIError(STATUS_CODE.BAD_REQUEST, "something went wrong during upload of coverImage!");
 
-  const user = await User.findByIdAndUpdate(
-    req.user?.id,
-    {
-      $set: {
-        coverImage: coverImage?.url
-      }
-    }
-  ).select(
-    "-password -refreshToken"
-  );
+  user.coverImage = coverImage.url;
+
+  await user.save({ validateBeforeSave: false });
+
+  const responseUser = {
+    id: user._id,
+    username: user.username,
+    fullname: user.fullname,
+    email: user.email,
+    avatar: user.avatar,
+    coverImage: user.coverImage
+  }
 
   return res
     .status(201)
@@ -343,7 +351,7 @@ const coverImageUpdate = async_handler(async (req, res) => {
       new APIResponse
         (
           STATUS_CODE.CREATED,
-          user,
+          responseUser,
           "coverImage updated successfully!"
         )
     )
