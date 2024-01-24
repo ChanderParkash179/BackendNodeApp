@@ -20,7 +20,9 @@ app.use(express.static("public"));
 app.use(cookie_parser());
 
 import user from './routes/user.route.js';
+import tweet from './routes/tweet.routes.js';
 
 app.use(`${BASE_URL}/users`, user);
+app.use(`${BASE_URL}/tweets`, tweet)
 
 export { app }
